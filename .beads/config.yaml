@@ -1,0 +1,4 @@
+repos:
+  primary: "."
+  additional:
+    - "C:\\Users\\windows 10\\.beads-planning"

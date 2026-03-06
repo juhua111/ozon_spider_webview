@@ -1,0 +1,15 @@
+pywebview==6.1
+pyinstaller==6.17.0
+httpx==0.28.1
+dmgbuild==1.6.5; sys_platform == 'darwin'
+pygobject==3.48.2; sys_platform == 'linux'
+# tinydb==4.8.2
+cryptography==46.0.3
+tinyaes==1.1.0
+sqlalchemy==2.0.7
+alembic==1.10.2
+DrissionPage
+feapder
+casdoor
+PyJWT
+aiohttp
