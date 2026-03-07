@@ -19,12 +19,15 @@ import random
 from DrissionPage.common import make_session_ele
 from DrissionPage._elements.session_element import SessionElement
 from DrissionPage.errors import ElementNotFoundError
+from icecream import ic
 
 
 import json
 import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
+from urllib.parse import quote
+from api import api
 
 
 @dataclass
@@ -304,7 +307,43 @@ js_script = '''
 })()
 '''
 
+api_json_script = '''
+(async () => {
+    const url = 'product_url';
+    const options = {
+        method: 'GET',
+        headers: {
+            'x-o3-parent-requestid': '46897293b194699b7667b51756ffe861',
+            'sec-ch-ua-platform': '"Windows"',
+            Referer: 'https://www.ozon.ru/highlight/tovary-iz-kitaya-935133/?category=14500&currency_price=39.000%3B200.000&is_promo=t&opened=type&__rr=1',
+            'x-o3-manifest-version': 'frontend-ozon-ru:4264d0b48da9a3233ab32becc11c9fdb43dd3df0,fav-render-api:e7a1651f95ac6d26124c0dcb962262db4ab27683,checkout-render-api:ba8ceca4682cf457ac6ab38daaf1ce9b077ecfee,search-render-api:16441d44cd5093e16aaae36387756a34c322a382,sf-render-api:8c41d8630daafe83248fffad6699d4dd0670218b',
+            'sec-ch-ua': '"Not:A-Brand";v="99", "Microsoft Edge";v="145", "Chromium";v="145"',
+            'x-o3-app-version': 'release_6-2-2026_4264d0b4',
+            'x-page-view-id': '3efa86c2-9417-4450-bdfd-4299ec212563',
+            'sec-ch-ua-mobile': '?0',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0',
+            Accept: 'application/json',
+            'x-o3-app-name': 'dweb_client'
+        }
+    };
 
+    try {
+        const response = await fetch(url, options);
+        const contentType = response.headers.get('content-type');
+        if (!response.ok) {
+            return {'error': `HTTP error! status: ${response.status}`};
+        }
+        if (contentType && contentType.includes('application/json')) {
+            return await response.json();
+        } else {
+            return await response.text();
+        }
+    } catch (error) {
+        return {'error': error.message};
+    }
+})()
+
+'''
 class OzonSpider(feapder.AirSpider):
 
     __custom_setting__ = dict(
@@ -314,7 +353,7 @@ class OzonSpider(feapder.AirSpider):
         LOG_LEVEL = "INFO"
     )
 
-    def __init__(self,base_url,browser:ChromiumPage,finish_event,max_page=820, api=None, end_callback=None, *args, **kwargs):
+    def __init__(self,base_url,browser:ChromiumPage,finish_event,max_page=820, api:api=None, end_callback=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.end_callback = end_callback
         self.lock = threading.Lock()
@@ -339,31 +378,38 @@ class OzonSpider(feapder.AirSpider):
         self.tab.get(base_url)
         res = self.tab.listen.wait(count=1)
         prev_page = res.response.body.get('prevPage')
+        log.debug(f'res.response.body: {res.response.body}')
+        log.info(f'prev_page: {prev_page}')
         #获取search_page_state
         if prev_page:
             self.search_page_state = prev_page.split('search_page_state=')[-1].split('&')[0]
+            self.start_page_id = prev_page.split('start_page_id=')[-1].split('&')[0]
         else:
             self.search_page_state = ''
+            self.start_page_id = ''
         print(self.search_page_state)
 
         # self.tab = self.browser.new_tab('https://www.ozon.ru/seller/123huang-3048138/?1=1&layout_container=default&paginator_token=3618992')
         self.tab.wait(5)
-        
+        self.tab.scroll.to_bottom()
 
+        
+#  /highlight/tovary-iz-kitaya-935133/?category=14500&currency_price=39.000%3B200.000&is_promo=t&opened=type&abt_att=1&layout_container=default&layout_page_index=1&opened=type&page=1
+# https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url=/highlight/tovary-iz-kitaya-935133/?category=14500&currency_price=39.000%3B200.000&is_promo=t&opened=type&abt_att=1&layout_container=default&layout_page_index=1&opened=type&page=1
 
 
     def start_requests(self):
         base_url = self.base_url
         #判断url是否有参数
         if '?' in base_url:
-            url = '{}&layout_container=default&layout_page_index={}&opened=type&page={}&search_page_state={}'
+            url = '{}&layout_container=default&layout_page_index={}&opened=type&page={}'
         else:
-            url = '{}?layout_container=default&layout_page_index={}&opened=type&page={}&search_page_state={}'
-        urls = [url.format(base_url,page,page,self.search_page_state) for page in range(1,self.max_page)]
-        # urls = [url.format(base_url,page) for page in range(1,2)]
-        # urls = ['https://www.ozon.ru/highlight/tovary-iz-kitaya-935133/?category=14500&currency_price=200.000%3B116479.000&abt_att=1&layout_container=default&page=820']
-        for i in urls:
-            yield feapder.Request(i,pageNum=i.split('=')[-1],priority=urls.index(i))
+            url = '{}?layout_container=default&layout_page_index={}&opened=type&page={}'
+        if self.search_page_state and self.start_page_id:
+            url = url.format(base_url,1,1,self.search_page_state,self.start_page_id)
+        else:
+            url = url.format(base_url,1,1)
+        yield feapder.Request(url)
 
     def parse(self, request, response):
         # 初始化计数器，防止变量未绑定错误
@@ -376,7 +422,11 @@ class OzonSpider(feapder.AirSpider):
         page_products_skipped = 0
         
         try:
-            page = request.pageNum
+            if '&page' in request.url:
+                ic(request.url)
+                page = request.url.split('page=')[-1].split('&')[0]
+            else:
+                page = 1
             tab: SessionElement = response.tab
             data = tab.s_ele('@id^state-tileGridDesktop')
             data = json.loads(data.attr('data-state'))
@@ -422,13 +472,19 @@ class OzonSpider(feapder.AirSpider):
                 add_num += 1
                 page_products_added += 1
                 yield item  
-            log.info(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品')
-            log.info(f'页面数据统计: 发现{page_products_found}个 → 添加{page_products_added}个 → 跳过{page_products_skipped}个')
+            self.api.log_message(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品', 'info')
+            self.api.log_message(f'页面数据统计: 发现{page_products_found}个 → 添加{page_products_added}个 → 跳过{page_products_skipped}个')
             
             # 更新全局统计
             self.global_products_found += page_products_found
             self.global_products_added += page_products_added
             self.global_products_skipped += page_products_skipped
+            
+            # 生成下一页请求
+            if response.nextPage and response.nextPage.strip():
+                next_page_url = "https://www.ozon.ru" + response.nextPage
+                log.info(f'准备请求第{int(page)+1}页: {next_page_url}')
+                yield feapder.Request(next_page_url)
         except ElementNotFoundError:
             log.error(f'第{page}页元素未找到')
         except Exception as e:
@@ -443,14 +499,29 @@ class OzonSpider(feapder.AirSpider):
             self.tab.wait(2)
 
     def download_midware(self, request):
+        request.nextPage = ""
         
         # 1. 初始状态检查
         current_session = self.session_id
-        
+        api_url = "https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url="
         # 检查是否需要同步页面状态（如果 session_id 已被其他线程更新）
-        product_url = request.url.replace(self.base_url, self.tab.url)
-
-        result = self.tab.run_js(js_script.replace('product_url', product_url), as_expr=True)
+        try:
+            # 使用请求的URL作为产品URL，不要用标签页的URL替换
+            product_url = request.url
+            if 'layout_container=default' in request.url:
+                result = self.tab.run_js(js_script.replace('product_url', request.url), as_expr=True)
+            else:
+                result = self.tab.run_js(js_script.replace('product_url', product_url), as_expr=True)
+            log.info(product_url.replace('https://www.ozon.ru', ''))
+            # url 转码
+            api_url += quote(product_url.replace('https://www.ozon.ru', ''), safe='')
+            ic(api_url)
+            api_result = self.tab.run_js(api_json_script.replace('product_url', api_url), as_expr=True)
+        except Exception as e:
+            ic(e)
+            ic(self.base_url)
+        nextPage = api_result.get('nextPage')
+        ic(nextPage)
         
         # 2. 检查结果是否异常：不是 dict 或者 dict 中包含 error (如 403)
         is_bad_result = isinstance(result, dict)
@@ -470,6 +541,7 @@ class OzonSpider(feapder.AirSpider):
                 product_url = request.url.replace(self.base_url, self.tab.url)
                 result = self.tab.run_js(js_script.replace('product_url', product_url), as_expr=True)
 
+
         # 3. 准备返回内容，确保传给 make_session_ele 的是字符串
         if isinstance(result, dict):
             content = json.dumps(result, ensure_ascii=False)
@@ -485,7 +557,9 @@ class OzonSpider(feapder.AirSpider):
             log.error(f"解析页面对象失败: {e}, content: {content[:100]}...")
             # 如果解析失败，创建一个空的元素避免后续 parse 崩溃
             response.tab = make_session_ele("<html></html>")
-            
+        
+        response.nextPage = nextPage
+
         return request, response
 
     def end_callback(self):

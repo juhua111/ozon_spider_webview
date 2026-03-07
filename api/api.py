@@ -382,16 +382,6 @@ class API(System, Storage):
         # 从配置表获取配置
         browser_path = self.orm.getConfigVar('browserPath')
         browser_user_data_path = self.orm.getConfigVar('browserUserDataPath')
-        max_concurrency = self.orm.getConfigVar('maxConcurrency')
-        
-        # 默认并发数
-        if not max_concurrency:
-            max_concurrency = 5
-        else:
-            try:
-                max_concurrency = int(max_concurrency)
-            except:
-                max_concurrency = 5
         
         # 验证浏览器配置
         if not browser_path or not browser_user_data_path:
@@ -419,14 +409,14 @@ class API(System, Storage):
         self.spider_status = 'running'
         self.spider_info = '正在启动爬虫...'
         self.spider_logs = []  # 清空历史日志
-        self.log_message(f'爬虫启动，并发数: {max_concurrency}', 'info')
+        self.log_message(f'爬虫启动', 'info')
         
         finish_event = threading.Event()
         
         def run_spider():
             try:
                 self.log_message('正在初始化浏览器实例...', 'info')
-                self.spider = OzonSpider(base_url, self.browser, finish_event, 820, api=self, end_callback=self.spider_end_callback, thread_count=max_concurrency)  # 默认爬取820页，传递API实例
+                self.spider = OzonSpider(base_url, self.browser, finish_event, 820, api=self, end_callback=self.spider_end_callback, thread_count=1)  # 默认爬取820页，传递API实例
                 self.log_message('爬虫实例创建成功', 'info')
                 self.spider.start()
                 self.spider_info = '正在爬取中...'

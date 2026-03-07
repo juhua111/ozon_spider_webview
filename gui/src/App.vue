@@ -1110,9 +1110,7 @@ onUnmounted(() => {
               <el-form-item label="浏览器用户数据路径">
                 <el-input v-model="configForm.browserUserDataPath" placeholder="请输入浏览器用户数据路径" />
               </el-form-item>
-              <el-form-item label="并发数量">
-                <el-input-number v-model="configForm.maxConcurrency" :min="1" :max="50" placeholder="爬虫并发线程数" />
-              </el-form-item>
+
               <el-form-item>
                 <el-button type="primary" @click="saveConfig">保存配置</el-button>
                 <el-button @click="resetConfig">重置默认</el-button>
