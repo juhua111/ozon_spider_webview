@@ -333,7 +333,19 @@ class OzonSpider(feapder.AirSpider):
         self.max_page = max_page
         self._finish_event = finish_event
         self.api = api
-        self.tab = self.browser.new_tab(base_url)
+        self.tab = self.browser.new_tab()
+
+        self.tab.listen.start('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2')  
+        self.tab.get(base_url)
+        res = self.tab.listen.wait(count=1)
+        prev_page = res.response.body.get('prevPage')
+        #获取search_page_state
+        if prev_page:
+            self.search_page_state = prev_page.split('search_page_state=')[-1].split('&')[0]
+        else:
+            self.search_page_state = ''
+ 
+
         # self.tab = self.browser.new_tab('https://www.ozon.ru/seller/123huang-3048138/?1=1&layout_container=default&paginator_token=3618992')
         self.tab.wait(5)
         
@@ -344,10 +356,10 @@ class OzonSpider(feapder.AirSpider):
         base_url = self.base_url
         #判断url是否有参数
         if '?' in base_url:
-            url = '{}&layout_container=default&layout_page_index={}&opened=type&page={}'
+            url = '{}&layout_container=default&layout_page_index={}&opened=type&page={}&search_page_state={}'
         else:
-            url = '{}?layout_container=default&layout_page_index={}&opened=type&page={}'
-        urls = [url.format(base_url,page,page) for page in range(1,self.max_page)]
+            url = '{}?layout_container=default&layout_page_index={}&opened=type&page={}&search_page_state={}'
+        urls = [url.format(base_url,page,page,self.search_page_state) for page in range(1,self.max_page)]
         # urls = [url.format(base_url,page) for page in range(1,2)]
         # urls = ['https://www.ozon.ru/highlight/tovary-iz-kitaya-935133/?category=14500&currency_price=200.000%3B116479.000&abt_att=1&layout_container=default&page=820']
         for i in urls:
