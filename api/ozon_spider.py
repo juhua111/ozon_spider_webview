@@ -335,7 +335,7 @@ class OzonSpider(feapder.AirSpider):
         self.api = api
         self.tab = self.browser.new_tab()
 
-        self.tab.listen.start('https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2')  
+        self.tab.listen.start('api/entrypoint-api.bx/page/json/v2')  
         self.tab.get(base_url)
         res = self.tab.listen.wait(count=1)
         prev_page = res.response.body.get('prevPage')
@@ -344,7 +344,7 @@ class OzonSpider(feapder.AirSpider):
             self.search_page_state = prev_page.split('search_page_state=')[-1].split('&')[0]
         else:
             self.search_page_state = ''
- 
+        print(self.search_page_state)
 
         # self.tab = self.browser.new_tab('https://www.ozon.ru/seller/123huang-3048138/?1=1&layout_container=default&paginator_token=3618992')
         self.tab.wait(5)
@@ -511,19 +511,15 @@ if __name__ == "__main__":
     import schedule
     import time
     def run_spider():
-        shop_ids = get_shops()
-        print(len(shop_ids))
-        all_category = {}
-        for shop_id in shop_ids:
-            all_category[shop_id] = f"https://www.ozon.ru/seller/{shop_id}/?1=1"
+        all_category = {
+            '_1':'https://www.ozon.ru/highlight/tovary-iz-kitaya-935133/?category=14500&currency_price=39.000%3B200.000&is_promo=t&opened=type'
+        }
 
         co = ChromiumOptions()
 
-        co.set_user_data_path(r"D:\browser data")
+        co.set_user_data_path(r"D:\browser data1")
         co.set_browser_path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
-        co.no_imgs(True)
-        co.headless(False)
-        co.set_local_port(59600)
+        # co.no_imgs(True)
         browser = ChromiumPage(co)
 
         status = False
@@ -531,7 +527,7 @@ if __name__ == "__main__":
                 
             finish_event = threading.Event()
             print(base_url)
-            OzonSpider(base_url=base_url,category=category,browser=browser,finish_event=finish_event,max_page=820,thread_count=3).start()
+            OzonSpider(base_url=base_url,browser=browser,finish_event=finish_event,max_page=820,thread_count=1).start()
             finish_event.wait()
 
         browser.quit()
