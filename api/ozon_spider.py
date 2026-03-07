@@ -19,7 +19,6 @@ import random
 from DrissionPage.common import make_session_ele
 from DrissionPage._elements.session_element import SessionElement
 from DrissionPage.errors import ElementNotFoundError
-from icecream import ic
 
 
 import json
@@ -423,7 +422,7 @@ class OzonSpider(feapder.AirSpider):
         
         try:
             if '&page' in request.url:
-                ic(request.url)
+                log.info(request.url)
                 page = request.url.split('page=')[-1].split('&')[0]
             else:
                 page = 1
@@ -515,13 +514,13 @@ class OzonSpider(feapder.AirSpider):
             log.info(product_url.replace('https://www.ozon.ru', ''))
             # url 转码
             api_url += quote(product_url.replace('https://www.ozon.ru', ''), safe='')
-            ic(api_url)
+            log.info(api_url)
             api_result = self.tab.run_js(api_json_script.replace('product_url', api_url), as_expr=True)
         except Exception as e:
-            ic(e)
-            ic(self.base_url)
+            log.info(e)
+            log.info(self.base_url)
         nextPage = api_result.get('nextPage')
-        ic(nextPage)
+        log.info(nextPage)
         
         # 2. 检查结果是否异常：不是 dict 或者 dict 中包含 error (如 403)
         is_bad_result = isinstance(result, dict)
