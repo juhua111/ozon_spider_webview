@@ -416,7 +416,7 @@ class API(System, Storage):
         def run_spider():
             try:
                 self.log_message('正在初始化浏览器实例...', 'info')
-                self.spider = OzonSpider(base_url, self.browser, finish_event, 820, api=self, end_callback=self.spider_end_callback, thread_count=1)  # 默认爬取820页，传递API实例
+                self.spider = OzonSpider(base_url, self.browser, finish_event, 820, api=self, thread_count=1)  # 默认爬取820页，传递API实例
                 self.log_message('爬虫实例创建成功', 'info')
                 self.spider.start()
                 self.spider_info = '正在爬取中...'

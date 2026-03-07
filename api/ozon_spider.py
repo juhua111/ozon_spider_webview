@@ -19,6 +19,7 @@ import random
 from DrissionPage.common import make_session_ele
 from DrissionPage._elements.session_element import SessionElement
 from DrissionPage.errors import ElementNotFoundError
+from icecream import ic
 
 
 import json
@@ -26,7 +27,6 @@ import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 from urllib.parse import quote
-from api import api
 
 
 @dataclass
@@ -352,9 +352,8 @@ class OzonSpider(feapder.AirSpider):
         LOG_LEVEL = "INFO"
     )
 
-    def __init__(self,base_url,browser:ChromiumPage,finish_event,max_page=820, api:api=None, end_callback=None, *args, **kwargs):
+    def __init__(self,base_url,browser:ChromiumPage,finish_event,max_page=820, api=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.end_callback = end_callback
         self.lock = threading.Lock()
         self.session_id = random.random()
 
@@ -422,7 +421,7 @@ class OzonSpider(feapder.AirSpider):
         
         try:
             if '&page' in request.url:
-                log.info(request.url)
+                ic(request.url)
                 page = request.url.split('page=')[-1].split('&')[0]
             else:
                 page = 1
@@ -470,9 +469,9 @@ class OzonSpider(feapder.AirSpider):
                 item.update_time = datetime.now()
                 add_num += 1
                 page_products_added += 1
-                yield item  
-            self.api.log_message(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品', 'info')
-            self.api.log_message(f'页面数据统计: 发现{page_products_found}个 → 添加{page_products_added}个 → 跳过{page_products_skipped}个')
+                # yield item  
+            ic(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品', 'info')
+            ic(f'页面数据统计: 发现{page_products_found}个 → 添加{page_products_added}个 → 跳过{page_products_skipped}个')
             
             # 更新全局统计
             self.global_products_found += page_products_found
@@ -514,13 +513,13 @@ class OzonSpider(feapder.AirSpider):
             log.info(product_url.replace('https://www.ozon.ru', ''))
             # url 转码
             api_url += quote(product_url.replace('https://www.ozon.ru', ''), safe='')
-            log.info(api_url)
+            ic(api_url)
             api_result = self.tab.run_js(api_json_script.replace('product_url', api_url), as_expr=True)
         except Exception as e:
-            log.info(e)
-            log.info(self.base_url)
+            ic(e)
+            ic(self.base_url)
         nextPage = api_result.get('nextPage')
-        log.info(nextPage)
+        ic(nextPage)
         
         # 2. 检查结果是否异常：不是 dict 或者 dict 中包含 error (如 403)
         is_bad_result = isinstance(result, dict)
@@ -536,9 +535,21 @@ class OzonSpider(feapder.AirSpider):
                     self.session_id = random.random()
                     log.info(f"页面已刷新，新 session_id: {self.session_id}")
                 
-                # 刷新后重新获取
-                product_url = request.url.replace(self.base_url, self.tab.url)
-                result = self.tab.run_js(js_script.replace('product_url', product_url), as_expr=True)
+                # 刷新后重新获取页面内容和API结果
+                product_url = request.url
+                if 'layout_container=default' in request.url:
+                    result = self.tab.run_js(js_script.replace('product_url', request.url), as_expr=True)
+                else:
+                    result = self.tab.run_js(js_script.replace('product_url', product_url), as_expr=True)
+                log.info(product_url.replace('https://www.ozon.ru', ''))
+                # 重新构建API URL并获取API结果
+                api_url = "https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2?url="
+                api_url += quote(product_url.replace('https://www.ozon.ru', ''), safe='')
+                ic(api_url)
+                api_result = self.tab.run_js(api_json_script.replace('product_url', api_url), as_expr=True)
+                # 重新获取nextPage
+                nextPage = api_result.get('nextPage')
+                ic(nextPage)
 
 
         # 3. 准备返回内容，确保传给 make_session_ele 的是字符串
