@@ -466,7 +466,7 @@ class OzonSpider(feapder.AirSpider):
                 item.update_time = datetime.now()
                 add_num += 1
                 page_products_added += 1
-                # yield item
+                yield item
             log.info(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品')
             log.info(f'页面数据统计: 发现{page_products_found}个 → 添加{page_products_added}个 → 跳过{page_products_skipped}个')
             
