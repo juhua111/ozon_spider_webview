@@ -353,6 +353,7 @@ class OzonSpider(feapder.AirSpider):
         super().__init__(*args, **kwargs)
         self.lock = threading.Lock()
         self.session_id = random.random()
+        self.api = api
 
         #页面0产品 计数器
         self.zero_product_count = 0
@@ -467,8 +468,8 @@ class OzonSpider(feapder.AirSpider):
                 add_num += 1
                 page_products_added += 1
                 yield item
-            log.info(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品')
-            log.info(f'页面数据统计: 发现{page_products_found}个 → 添加{page_products_added}个 → 跳过{page_products_skipped}个')
+            self.api.log_message(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品')
+            self.api.log_message(f'页面数据统计: 发现{page_products_found}个 → 添加{page_products_added}个 → 跳过{page_products_skipped}个')
             
             # 更新全局统计
             self.global_products_found += page_products_found
