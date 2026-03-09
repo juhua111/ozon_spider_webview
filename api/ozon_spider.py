@@ -21,7 +21,6 @@ from DrissionPage._elements.session_element import SessionElement
 from DrissionPage.errors import ElementNotFoundError
 
 import json
-import re
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 from urllib.parse import quote
@@ -467,8 +466,8 @@ class OzonSpider(feapder.AirSpider):
                 item.update_time = datetime.now()
                 add_num += 1
                 page_products_added += 1
-                # yield item  
-            log.info(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品', 'info')
+                # yield item
+            log.info(f'第{page}页添加{page_products_added}个商品，跳过{page_products_skipped}个无效商品')
             log.info(f'页面数据统计: 发现{page_products_found}个 → 添加{page_products_added}个 → 跳过{page_products_skipped}个')
             
             # 更新全局统计
@@ -577,7 +576,10 @@ class OzonSpider(feapder.AirSpider):
         log.info(f'  总发现商品数量: {self.global_products_found}')
         log.info(f'  总添加商品数量: {self.global_products_added}')
         log.info(f'  总跳过商品数量: {self.global_products_skipped}')
-        log.info(f'  数据有效率: {self.global_products_added / self.global_products_found:.2%}')
+        if self.global_products_found > 0:
+            log.info(f'  数据有效率: {self.global_products_added / self.global_products_found:.2%}')
+        else:
+            log.info(f'  数据有效率: 0.00%')
         
         if self._finish_event:
             self._finish_event.set()
