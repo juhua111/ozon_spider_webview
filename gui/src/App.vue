@@ -292,6 +292,15 @@ const spiderConfig = ref({
 // 爬虫日志
 const spiderLogs = ref([])
 
+// 任务队列相关数据
+const taskQueue = ref([])
+const currentTask = ref(null)
+const queueStatus = ref('idle')
+const newTaskForm = ref({
+  url: '',
+  name: ''
+})
+
 // 数据列表
 const dataList = ref([])
 // 数据总数量
@@ -304,6 +313,12 @@ const menuItems = [
     title: '爬虫控制',
     icon: 'el-icon-s-operation',
     description: '启动和管理爬虫任务'
+  },
+  {
+    index: 'task-queue',
+    title: '任务队列',
+    icon: 'el-icon-s-order',
+    description: '管理爬虫任务队列'
   },
   {
     index: 'data-query',
@@ -343,6 +358,14 @@ const fetchSpiderStatus = async () => {
     const logs = await callApi('get_spider_logs')
     if (logs && Array.isArray(logs)) {
       spiderLogs.value = logs
+    }
+    
+    // 获取任务队列状态
+    const queueData = await callApi('get_task_queue')
+    if (queueData && queueData.success !== false) {
+      taskQueue.value = queueData.queue
+      currentTask.value = queueData.current_task
+      queueStatus.value = queueData.status
     }
     
     // 自动滚动到日志底部
@@ -428,6 +451,111 @@ const stopStatusUpdate = () => {
     clearInterval(statusUpdateTimer)
     statusUpdateTimer = null
   }
+}
+
+// 任务队列相关方法
+const addTaskToQueue = async () => {
+  if (!newTaskForm.value.url) {
+    ElMessage.error('请输入要爬取的类目网址或店铺网址')
+    return
+  }
+  
+  // 简单的URL格式验证
+  if (!newTaskForm.value.url.startsWith('http://') && !newTaskForm.value.url.startsWith('https://')) {
+    ElMessage.error('请输入有效的URL地址（以http://或https://开头）')
+    return
+  }
+  
+  try {
+    const result = await callApi('add_task_to_queue', newTaskForm.value.url, newTaskForm.value.name)
+    if (result && result.success) {
+      ElMessage.success('任务已添加到队列')
+      newTaskForm.value.url = ''
+      newTaskForm.value.name = ''
+      await fetchSpiderStatus()
+    } else if (result && result.success === false) {
+      ElMessage.error(result.message || '添加任务失败')
+    }
+  } catch (error) {
+    console.error('添加任务失败:', error)
+    ElMessage.error('添加任务失败')
+  }
+}
+
+const removeTaskFromQueue = async (taskId) => {
+  try {
+    const result = await callApi('remove_task_from_queue', taskId)
+    if (result && result.success) {
+      ElMessage.success('任务已删除')
+      await fetchSpiderStatus()
+    } else if (result && result.success === false) {
+      ElMessage.error(result.message || '删除任务失败')
+    }
+  } catch (error) {
+    console.error('删除任务失败:', error)
+    ElMessage.error('删除任务失败')
+  }
+}
+
+const clearTaskQueue = async () => {
+  try {
+    await ElMessageBox.confirm('确定要清空队列中所有待执行的任务吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const result = await callApi('clear_task_queue')
+    if (result && result.success) {
+      ElMessage.success(`已清空 ${result.removed_count} 个待执行任务`)
+      await fetchSpiderStatus()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('清空队列失败:', error)
+      ElMessage.error('清空队列失败')
+    }
+  }
+}
+
+const startTaskQueue = async () => {
+  try {
+    const result = await callApi('start_task_queue')
+    if (result && result.success) {
+      ElMessage.success('任务队列已启动')
+      startStatusUpdate()
+      await fetchSpiderStatus()
+    } else if (result && result.success === false) {
+      ElMessage.error(result.message || '启动队列失败')
+    }
+  } catch (error) {
+    console.error('启动队列失败:', error)
+    ElMessage.error('启动队列失败')
+  }
+}
+
+const stopTaskQueue = async () => {
+  try {
+    const result = await callApi('stop_task_queue')
+    if (result && result.success) {
+      ElMessage.success('任务队列已暂停')
+      await fetchSpiderStatus()
+    }
+  } catch (error) {
+    console.error('暂停队列失败:', error)
+    ElMessage.error('暂停队列失败')
+  }
+}
+
+// 获取任务状态的显示文本和类型
+const getTaskStatusInfo = (status) => {
+  const statusMap = {
+    pending: { text: '待执行', type: 'info' },
+    running: { text: '执行中', type: 'primary' },
+    completed: { text: '已完成', type: 'success' },
+    failed: { text: '失败', type: 'danger' }
+  }
+  return statusMap[status] || { text: '未知', type: 'info' }
 }
 
 // 切换菜单
@@ -957,6 +1085,140 @@ onUnmounted(() => {
           </el-card>
         </div>
         
+        <!-- 任务队列页面 -->
+        <div v-if="activeMenu === 'task-queue'" class="task-queue-page">
+          <el-card class="queue-card">
+            <template #header>
+              <div class="card-header">
+                <span>任务队列管理</span>
+                <div>
+                  <el-tag :type="queueStatus === 'running' ? 'success' : (queueStatus === 'paused' ? 'warning' : 'info')" style="margin-right: 10px;">
+                    队列状态: {{ queueStatus === 'running' ? '运行中' : (queueStatus === 'paused' ? '已暂停' : '空闲') }}
+                  </el-tag>
+                  <el-tag type="primary">
+                    队列长度: {{ taskQueue.length }}
+                  </el-tag>
+                </div>
+              </div>
+            </template>
+            
+            <!-- 添加任务表单 -->
+            <div class="add-task-form">
+              <h3>添加新任务</h3>
+              <el-form :model="newTaskForm" inline>
+                <el-form-item label="任务名称">
+                  <el-input 
+                    v-model="newTaskForm.name" 
+                    placeholder="可选，任务别名" 
+                    style="width: 200px"
+                  />
+                </el-form-item>
+                <el-form-item label="爬取URL" required>
+                  <el-input 
+                    v-model="newTaskForm.url" 
+                    placeholder="请输入类目网址或店铺网址" 
+                    style="width: 500px"
+                  />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="addTaskToQueue">
+                    <el-icon><el-icon-plus /></el-icon>
+                    添加到队列
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+            
+            <!-- 队列控制按钮 -->
+            <div class="queue-controls" style="margin: 20px 0;">
+              <el-button 
+                type="success" 
+                @click="startTaskQueue"
+                :disabled="queueStatus === 'running' || taskQueue.filter(t => t.status === 'pending').length === 0"
+              >
+                <el-icon><el-icon-video-play /></el-icon>
+                启动队列
+              </el-button>
+              <el-button 
+                type="warning" 
+                @click="stopTaskQueue"
+                :disabled="queueStatus !== 'running'"
+              >
+                <el-icon><el-icon-video-pause /></el-icon>
+                暂停队列
+              </el-button>
+              <el-button 
+                type="danger" 
+                @click="clearTaskQueue"
+                :disabled="taskQueue.filter(t => t.status === 'pending').length === 0"
+              >
+                <el-icon><el-icon-delete /></el-icon>
+                清空待执行任务
+              </el-button>
+              <el-button 
+                type="info" 
+                @click="fetchSpiderStatus"
+              >
+                <el-icon><el-icon-refresh /></el-icon>
+                刷新队列
+              </el-button>
+            </div>
+            
+            <!-- 当前执行中的任务 -->
+            <div class="current-task" v-if="currentTask">
+              <h3>当前执行中的任务</h3>
+              <el-alert
+                :title="`正在执行: ${currentTask.name}`"
+                :description="currentTask.url"
+                type="warning"
+                show-icon
+              >
+                <template #default>
+                  <div style="margin-top: 10px;">
+                    <span>开始时间: {{ currentTask.start_time }}</span>
+                  </div>
+                </template>
+              </el-alert>
+            </div>
+            
+            <!-- 任务队列列表 -->
+            <div class="task-list">
+              <h3>任务列表</h3>
+              <el-table :data="taskQueue" style="width: 100%">
+                <el-table-column prop="id" label="ID" width="80" />
+                <el-table-column prop="name" label="任务名称" min-width="150" />
+                <el-table-column prop="url" label="URL" min-width="300" show-overflow-tooltip />
+                <el-table-column prop="status" label="状态" width="100">
+                  <template #default="scope">
+                    <el-tag :type="getTaskStatusInfo(scope.row.status).type">
+                      {{ getTaskStatusInfo(scope.row.status).text }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="created_time" label="创建时间" width="180" />
+                <el-table-column prop="start_time" label="开始时间" width="180" />
+                <el-table-column prop="end_time" label="结束时间" width="180" />
+                <el-table-column label="操作" width="120">
+                  <template #default="scope">
+                    <el-button 
+                      type="danger" 
+                      size="small" 
+                      @click="removeTaskFromQueue(scope.row.id)"
+                      :disabled="scope.row.status === 'running'"
+                    >
+                      删除
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              
+              <div class="empty-state" v-if="taskQueue.length === 0">
+                <el-empty description="暂无任务" />
+              </div>
+            </div>
+          </el-card>
+        </div>
+        
         <!-- 数据查询页面 -->
         <div v-if="activeMenu === 'data-query'" class="data-query-page">
           <el-card class="query-card">
@@ -1310,13 +1572,35 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.control-card, .query-card, .config-card {
+.control-card, .query-card, .config-card, .queue-card {
   margin-bottom: 20px;
 }
 
 /* 爬虫控制页面 */
 .spider-control-page {
   /* 页面样式 */
+}
+
+/* 任务队列页面 */
+.task-queue-page {
+  /* 页面样式 */
+}
+
+.add-task-form {
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.add-task-form h3, .queue-controls h3, .current-task h3, .task-list h3 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+  font-size: 16px;
+}
+
+.current-task {
+  margin-bottom: 20px;
 }
 
 .spider-config {
