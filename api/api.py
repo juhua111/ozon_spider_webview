@@ -742,6 +742,10 @@ class API(System, Storage):
                     filter_description.append(f'最低星_{filters["minStar"]}')
                 if filters.get('maxStar') is not None:
                     filter_description.append(f'最高星_{filters["maxStar"]}')
+                if filters.get('minCommentCount') is not None:
+                    filter_description.append(f'最少评价数_{filters["minCommentCount"]}')
+                if filters.get('maxCommentCount') is not None:
+                    filter_description.append(f'最多评价数_{filters["maxCommentCount"]}')
             
             # 生成文件名
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -756,7 +760,7 @@ class API(System, Storage):
             
             # 写入CSV文件
             with open(filepath, 'w', newline='', encoding='utf-8-sig') as csvfile:
-                fieldnames = ['sku', 'price', 'star', 'status', 'created_at', 'updated_at']
+                fieldnames = ['sku', 'price', 'star', 'comment_count', 'status', 'created_at', 'updated_at']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 
                 writer.writeheader()

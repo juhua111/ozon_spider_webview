@@ -88,3 +88,37 @@ UPDATE alembic_version SET version_num='b14d43f063f4' WHERE alembic_version.vers
 
 UPDATE alembic_version SET version_num='e18815479f93' WHERE alembic_version.version_num = 'b14d43f063f4';
 
+-- Running upgrade e18815479f93 -> 594595075a53
+
+ALTER TABLE ppx_storage_var ADD COLUMN comment_count INTEGER DEFAULT '0' NOT NULL;
+
+UPDATE alembic_version SET version_num='594595075a53' WHERE alembic_version.version_num = 'e18815479f93';
+
+-- Running upgrade 594595075a53 -> 42f5695aeffb
+
+UPDATE alembic_version SET version_num='42f5695aeffb' WHERE alembic_version.version_num = '594595075a53';
+
+-- Running upgrade 42f5695aeffb -> cc82b18290d9
+
+UPDATE alembic_version SET version_num='cc82b18290d9' WHERE alembic_version.version_num = '42f5695aeffb';
+
+-- Running upgrade cc82b18290d9 -> 77e45e7937d4
+
+UPDATE alembic_version SET version_num='77e45e7937d4' WHERE alembic_version.version_num = 'cc82b18290d9';
+
+-- Running upgrade 77e45e7937d4 -> c63cade9c229
+
+UPDATE alembic_version SET version_num='c63cade9c229' WHERE alembic_version.version_num = '77e45e7937d4';
+
+-- Running upgrade c63cade9c229 -> 44a7785024f6
+
+UPDATE alembic_version SET version_num='44a7785024f6' WHERE alembic_version.version_num = 'c63cade9c229';
+
+-- Running upgrade 44a7785024f6 -> 6df4ae2d9e1d
+
+UPDATE alembic_version SET version_num='6df4ae2d9e1d' WHERE alembic_version.version_num = '44a7785024f6';
+
+-- Running upgrade 6df4ae2d9e1d -> 63c9e5a5d4c1
+
+UPDATE alembic_version SET version_num='63c9e5a5d4c1' WHERE alembic_version.version_num = '6df4ae2d9e1d';
+

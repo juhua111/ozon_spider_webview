@@ -25,7 +25,7 @@ class Config:
     ##
     appName = 'OzonSpider'  # 应用名称
     appNameEN = 'OzonSpider'    # 应用名称-英文（用于生成缓存文件夹，必须是英文）
-    appVersion = "V1.2"  # 应用版本号
+    appVersion = "V1.3"  # 应用版本号
     appDeveloper = "CJH"  # 应用开发者
     appBlogs = ""  # 个人博客
     appPackage = 'vip.cjh.ozonspider'    # 应用包名，用于在本地电脑生成 vip.pangao.ozonspider 唯一文件夹

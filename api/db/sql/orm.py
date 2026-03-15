@@ -157,6 +157,10 @@ class ORM:
                         stmt = stmt.where(PPXStorageVar.star >= filters['minStar'])
                     if filters.get('maxStar') is not None:
                         stmt = stmt.where(PPXStorageVar.star <= filters['maxStar'])
+                    if filters.get('minCommentCount') is not None:
+                        stmt = stmt.where(PPXStorageVar.comment_count >= filters['minCommentCount'])
+                    if filters.get('maxCommentCount') is not None:
+                        stmt = stmt.where(PPXStorageVar.comment_count <= filters['maxCommentCount'])
                 result = dbSession.execute(stmt)
                 return result.scalar()
         finally:
@@ -181,6 +185,10 @@ class ORM:
                         stmt = stmt.where(PPXStorageVar.star >= filters['minStar'])
                     if filters.get('maxStar') is not None:
                         stmt = stmt.where(PPXStorageVar.star <= filters['maxStar'])
+                    if filters.get('minCommentCount') is not None:
+                        stmt = stmt.where(PPXStorageVar.comment_count >= filters['minCommentCount'])
+                    if filters.get('maxCommentCount') is not None:
+                        stmt = stmt.where(PPXStorageVar.comment_count <= filters['maxCommentCount'])
                 if limit is not None:
                     stmt = stmt.limit(limit).offset((page-1)*limit)
                 result = dbSession.execute(stmt)

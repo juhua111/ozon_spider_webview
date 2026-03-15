@@ -263,7 +263,9 @@ const filterForm = ref({
   minPrice: null, // 最低价格
   maxPrice: null, // 最高价格
   minStar: 0, // 最低评分
-  maxStar: 5 // 最高评分
+  maxStar: 5, // 最高评分
+  minCommentCount: null, // 最低评价数量
+  maxCommentCount: null // 最高评价数量
 })
 
 // 配置表单数据
@@ -644,7 +646,9 @@ const deleteSelectedData = async () => {
       minPrice: filterForm.value.minPrice,
       maxPrice: filterForm.value.maxPrice,
       minStar: filterForm.value.minStar,
-      maxStar: filterForm.value.maxStar
+      maxStar: filterForm.value.maxStar,
+      minCommentCount: filterForm.value.minCommentCount,
+      maxCommentCount: filterForm.value.maxCommentCount
     }
     
     // 调用后端API删除数据
@@ -682,7 +686,9 @@ const resetFilterForm = () => {
     minPrice: null,
     maxPrice: null,
     minStar: 0,
-    maxStar: 5
+    maxStar: 5,
+    minCommentCount: null,
+    maxCommentCount: null
   }
 }
 
@@ -695,7 +701,9 @@ const applyFilters = async () => {
       minPrice: filterForm.value.minPrice,
       maxPrice: filterForm.value.maxPrice,
       minStar: filterForm.value.minStar,
-      maxStar: filterForm.value.maxStar
+      maxStar: filterForm.value.maxStar,
+      minCommentCount: filterForm.value.minCommentCount,
+      maxCommentCount: filterForm.value.maxCommentCount
     }
     
     // 调用后端API获取筛选后的数据
@@ -728,7 +736,9 @@ const exportData = async () => {
       minPrice: filterForm.value.minPrice,
       maxPrice: filterForm.value.maxPrice,
       minStar: filterForm.value.minStar,
-      maxStar: filterForm.value.maxStar
+      maxStar: filterForm.value.maxStar,
+      minCommentCount: filterForm.value.minCommentCount,
+      maxCommentCount: filterForm.value.maxCommentCount
     }
     
     const result = await callApi('export_data', filters)
@@ -939,7 +949,7 @@ onUnmounted(() => {
       </el-menu>
       
       <div class="version-info">
-        <p>版本: V1.1</p>
+        <p>版本: V1.3</p>
         <p>开发者: CJH</p>
       </div>
     </div>
@@ -1309,6 +1319,22 @@ onUnmounted(() => {
                     style="width: 100%"
                   />
                 </el-form-item>
+                
+                <el-form-item label="评价数量">
+                  <el-input-number
+                    v-model="filterForm.minCommentCount"
+                    placeholder="最低评价数"
+                    :min="0"
+                    style="width: 100%"
+                  />
+                  <span style="padding: 0 10px">-</span>
+                  <el-input-number
+                    v-model="filterForm.maxCommentCount"
+                    placeholder="最高评价数"
+                    :min="0"
+                    style="width: 100%"
+                  />
+                </el-form-item>
               </el-form>
               
               <template #footer>
@@ -1334,6 +1360,11 @@ onUnmounted(() => {
                 <el-table-column prop="star" label="评分" width="100">
                   <template #default="scope">
                     <el-tag :type="getStarType(scope.row.star)">{{ scope.row.star.toFixed(1) }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="comment_count" label="评价数量" width="120">
+                  <template #default="scope">
+                    <el-tag type="info">{{ scope.row.comment_count }}</el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column prop="status" label="状态" width="120">

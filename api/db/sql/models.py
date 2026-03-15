@@ -63,6 +63,8 @@ class PPXStorageVar(BaseModel):
     sku = Column(String(), doc='键', nullable=False, index=True, unique=True)
     price = Column(Numeric(10, 2), doc='价格', nullable=False, server_default='0.00')
     star = Column(Numeric(10, 2), doc='星级', nullable=False, server_default='0.00')
+    #评价数量
+    comment_count = Column(Integer, doc='评价数量', nullable=False, server_default='0')
     status = Column(Integer, doc='状态', nullable=False, server_default='0')
 
 

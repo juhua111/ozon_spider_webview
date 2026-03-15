@@ -76,7 +76,7 @@ class DB:
         '''迁移数据库结构'''
         currentVersion = ''    # 当前最新数据库版本
         currentVersionPath = os.path.join(Config.staticDir, 'db', 'sql', 'version')    # 存放当前最新数据库版本号的路径
-        with open(currentVersionPath, 'r') as f1:
+        with open(currentVersionPath, 'r', encoding='utf-8', errors='ignore') as f1:
             list1 = f1.readlines()
         for i in range(len(list1)-1, -1, -1):
             row = list1[i].rstrip('\n')
@@ -95,7 +95,7 @@ class DB:
             if currentVersion != oldVersion:
                 # 获取历史结构
                 migrationPath = os.path.join(Config.staticDir, 'db', 'sql', 'migration.sql')
-                with open(migrationPath, 'r') as f1:
+                with open(migrationPath, 'r', encoding='utf-8', errors='ignore') as f1:
                     migrationList = f1.readlines()
                 version = ''
                 versionUpdate = ''    # 要更新的数据库版本

@@ -1,0 +1,32 @@
+2026-03-16 00:03:31.629 | INFO     | __main__:check_database:20 - 开始检查数据库...
+2026-03-16 00:03:31.663 | INFO     | __main__:check_database:36 - 总商品数量: 0
+2026-03-16 00:03:31.663 | INFO     | __main__:check_database:39 - 前20个商品:
+2026-03-16 00:03:31.664 | INFO     | __main__:check_database:45 - 价格统计:
+2026-03-16 00:03:31.665 | INFO     | __main__:check_database:55 - ✅ 数据库检查完成
+2026-03-16 00:03:59.992 | INFO     | __main__:check_database:20 - 开始检查数据库...
+2026-03-16 00:04:00.014 | INFO     | __main__:check_database:35 - 查询表结构:
+2026-03-16 00:04:00.015 | ERROR    | __main__:check_database:43 - ❌ 数据库检查失败: name 'text' is not defined
+2026-03-16 00:04:00.016 | ERROR    | __main__:check_database:45 - 错误详情: Traceback (most recent call last):
+  File "d:\Users\windows 10\Desktop\git\ozon_spider_webview\check_database.py", line 36, in check_database
+    stmt = text('SELECT name FROM sqlite_master WHERE type="table";')
+           ^^^^
+NameError: name 'text' is not defined. Did you mean: 'next'?
+
+2026-03-16 00:04:31.744 | INFO     | __main__:check_database:21 - 开始检查数据库...
+2026-03-16 00:04:31.765 | INFO     | __main__:check_database:36 - 查询表结构:
+2026-03-16 00:04:31.766 | INFO     | __main__:check_database:41 - 表名: alembic_version
+2026-03-16 00:04:31.766 | INFO     | __main__:check_database:41 - 表名: ppx_storage_var
+2026-03-16 00:04:31.766 | INFO     | __main__:check_database:41 - 表名: ppx_config_var
+2026-03-16 00:04:54.425 | INFO     | __main__:check_database:21 - 开始检查数据库...
+2026-03-16 00:04:54.447 | INFO     | __main__:check_database:36 - 查询ppx_storage_var表结构:
+2026-03-16 00:04:54.447 | INFO     | __main__:check_database:41 - 表名: ppx_storage_var
+2026-03-16 00:05:05.352 | INFO     | __main__:check_database:21 - 开始检查数据库...
+2026-03-16 00:05:05.376 | INFO     | __main__:check_database:36 - 查询ppx_storage_var表的字段结构:
+2026-03-16 00:05:05.376 | INFO     | __main__:check_database:41 - 字段名: id, 类型: INTEGER
+2026-03-16 00:05:05.377 | INFO     | __main__:check_database:41 - 字段名: created_at, 类型: DATETIME
+2026-03-16 00:05:05.377 | INFO     | __main__:check_database:41 - 字段名: updated_at, 类型: DATETIME
+2026-03-16 00:05:05.377 | INFO     | __main__:check_database:41 - 字段名: sku, 类型: VARCHAR
+2026-03-16 00:05:05.377 | INFO     | __main__:check_database:41 - 字段名: price, 类型: NUMERIC(10, 2)
+2026-03-16 00:05:05.377 | INFO     | __main__:check_database:41 - 字段名: star, 类型: NUMERIC(10, 2)
+2026-03-16 00:05:05.378 | INFO     | __main__:check_database:41 - 字段名: status, 类型: INTEGER
+2026-03-16 00:05:05.379 | INFO     | __main__:check_database:41 - 字段名: comment_count, 类型: INTEGER

@@ -105,6 +105,8 @@ class OzonProductParser:
                         rating = label.get('title', '').strip()
                     elif 'dialog' in label.get('icon', {}).get('image', '').lower():
                         review_count = label.get('title', '').strip()
+                        if 'отзыва' in review_count:
+                            review_count = review_count.replace('отзыва', '').strip()
         
         return rating, review_count
     
@@ -437,6 +439,8 @@ class OzonSpider(feapder.AirSpider):
                 
                 # 添加额外的清理数据
                 product_dict = product.to_dict()
+                with open('product.json', 'w', encoding='utf-8') as f:
+                    json.dump(product_dict, f, ensure_ascii=False, indent=4)
                 product_dict['current_price_clean'] = clean_price_text(product.current_price)
                 product_dict['original_price_clean'] = clean_price_text(product.original_price)
                 product_dict['review_count_clean'] = clean_review_count(product.review_count)
@@ -453,6 +457,8 @@ class OzonSpider(feapder.AirSpider):
                 item.price = product_dict['current_price_clean']['amount']
                 # 处理 star 字段为空的情况
                 item.star = 0.0  # 默认值为 0.0
+                item.comment_count = product_dict['review_count_clean']
+                log.info(f'第{page}页商品{add_num}：{item.title}，评论数：{item.comment_count}')
                 item.api = self.api
                 
                 rating = product_dict['rating']

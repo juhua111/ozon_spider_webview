@@ -51,6 +51,7 @@ class Pipeline(BasePipeline):
                 sku = item.get('sku')
                 price = item.get('price')
                 star = item.get('star', 0.0)
+                comment_count = item.get('comment_count', 0)
                 
                 # 数据验证
                 if not sku:
@@ -60,6 +61,16 @@ class Pipeline(BasePipeline):
                 if price is None or price == '':
                     skipped_items.append(f"价格无效 (SKU: {sku}): {price}")
                     continue
+                
+                # 处理 comment_count 字段
+                if comment_count == '' or comment_count is None:
+                    comment_count = 0
+                else:
+                    try:
+                        comment_count = int(comment_count)
+                    except (ValueError, TypeError):
+                        logger.warning(f"comment_count转换失败 (SKU: {sku}): {comment_count}，使用默认值0")
+                        comment_count = 0
                 
                 # 处理 star 字段
                 if star == '' or star is None:
@@ -82,6 +93,7 @@ class Pipeline(BasePipeline):
                     'sku': sku,
                     'price': price,
                     'star': star,
+                    'comment_count': comment_count,
                     'status': 0
                 })
             
