@@ -493,94 +493,119 @@ class API(System, Storage):
     @auth_required
     def get_task_queue(self):
         '''获取任务队列'''
-        return {
-            'queue': self.task_queue,
-            'current_task': self.current_task,
-            'status': self.queue_status
-        }
+        try:
+            return {
+                'queue': self.task_queue,
+                'current_task': self.current_task,
+                'status': self.queue_status
+            }
+        except Exception as e:
+            self.log_message(f'获取任务队列信息时出错: {str(e)}', 'error')
+            return {'queue': [], 'current_task': None, 'status': 'idle', 'error': str(e)}
     
     @auth_required
     def add_task_to_queue(self, base_url, task_name=''):
         '''添加任务到队列'''
-        if not base_url:
-            return {'success': False, 'message': 'URL不能为空'}
-        
-        # 简单的URL格式验证
-        if not base_url.startswith('http://') and not base_url.startswith('https://'):
-            return {'success': False, 'message': '请输入有效的URL地址（以http://或https://开头）'}
-        
-        import datetime
-        task = {
-            'id': len(self.task_queue) + 1,
-            'name': task_name if task_name else f'任务 {len(self.task_queue) + 1}',
-            'url': base_url,
-            'status': 'pending',  # pending: 待执行, running: 执行中, completed: 已完成, failed: 失败
-            'created_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'start_time': None,
-            'end_time': None
-        }
-        
-        self.task_queue.append(task)
-        self.log_message(f'已添加任务到队列: {task["name"]} - {base_url}', 'info')
-        
-        # 如果队列当前是空闲状态，自动启动队列
-        if self.queue_status == 'idle' and self.spider_status == 'idle':
-            self._process_next_task()
-        
-        return {'success': True, 'task': task}
+        try:
+            if not base_url:
+                return {'success': False, 'message': 'URL不能为空'}
+            
+            # 简单的URL格式验证
+            if not base_url.startswith('http://') and not base_url.startswith('https://'):
+                return {'success': False, 'message': '请输入有效的URL地址（以http://或https://开头）'}
+            
+            import datetime
+            task = {
+                'id': len(self.task_queue) + 1,
+                'name': task_name if task_name else f'任务 {len(self.task_queue) + 1}',
+                'url': base_url,
+                'status': 'pending',  # pending: 待执行, running: 执行中, completed: 已完成, failed: 失败
+                'created_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'start_time': None,
+                'end_time': None
+            }
+            
+            self.task_queue.append(task)
+            self.log_message(f'已添加任务到队列: {task["name"]} - {base_url}', 'info')
+            
+            # 如果队列当前是空闲状态，自动启动队列
+            if self.queue_status == 'idle' and self.spider_status == 'idle':
+                self._process_next_task()
+            
+            return {'success': True, 'task': task}
+        except Exception as e:
+            self.log_message(f'添加任务到队列时出错: {str(e)}', 'error')
+            return {'success': False, 'message': str(e)}
     
     @auth_required
     def remove_task_from_queue(self, task_id):
         '''从队列中删除任务'''
-        task_id = int(task_id)
-        for i, task in enumerate(self.task_queue):
-            if task['id'] == task_id:
-                if task['status'] == 'running':
-                    return {'success': False, 'message': '正在执行的任务无法删除，请先停止爬虫'}
-                removed_task = self.task_queue.pop(i)
-                self.log_message(f'已删除任务: {removed_task["name"]}', 'info')
-                return {'success': True}
-        
-        return {'success': False, 'message': '任务不存在'}
+        try:
+            task_id = int(task_id)
+            for i, task in enumerate(self.task_queue):
+                if task['id'] == task_id:
+                    if task['status'] == 'running':
+                        return {'success': False, 'message': '正在执行的任务无法删除，请先停止爬虫'}
+                    removed_task = self.task_queue.pop(i)
+                    self.log_message(f'已删除任务: {removed_task["name"]}', 'info')
+                    return {'success': True}
+            
+            return {'success': False, 'message': '任务不存在'}
+        except Exception as e:
+            self.log_message(f'删除任务时出错: {str(e)}', 'error')
+            return {'success': False, 'message': str(e)}
     
     @auth_required
     def clear_task_queue(self):
         '''清空任务队列'''
-        # 只删除待执行的任务
-        pending_tasks = [task for task in self.task_queue if task['status'] == 'pending']
-        self.task_queue = [task for task in self.task_queue if task['status'] == 'running']
-        self.log_message(f'已清空队列中 {len(pending_tasks)} 个待执行任务', 'info')
-        return {'success': True, 'removed_count': len(pending_tasks)}
+        try:
+            # 只删除待执行的任务
+            pending_tasks = [task for task in self.task_queue if task['status'] == 'pending']
+            self.task_queue = [task for task in self.task_queue if task['status'] == 'running']
+            self.log_message(f'已清空队列中 {len(pending_tasks)} 个待执行任务', 'info')
+            return {'success': True, 'removed_count': len(pending_tasks)}
+        except Exception as e:
+            self.log_message(f'清空任务队列时出错: {str(e)}', 'error')
+            return {'success': False, 'message': str(e)}
     
     @auth_required
     def start_task_queue(self):
         '''启动任务队列'''
-        if self.queue_status == 'running':
-            return {'success': False, 'message': '队列已经在运行中'}
-        
-        self.queue_status = 'running'
-        self.log_message('任务队列已启动', 'info')
-        
-        # 如果当前没有正在执行的任务，处理下一个任务
-        if self.spider_status == 'idle':
-            self._process_next_task()
-        
-        return {'success': True}
+        try:
+            if self.queue_status == 'running':
+                return {'success': False, 'message': '队列已经在运行中'}
+            
+            self.queue_status = 'running'
+            self.log_message('任务队列已启动', 'info')
+            
+            # 如果当前没有正在执行的任务，处理下一个任务
+            if self.spider_status == 'idle':
+                self._process_next_task()
+            
+            return {'success': True}
+        except Exception as e:
+            self.log_message(f'启动任务队列时出错: {str(e)}', 'error')
+            self.queue_status = 'idle'
+            return {'success': False, 'message': str(e)}
     
     @auth_required
     def stop_task_queue(self):
         '''停止任务队列（当前任务执行完后停止）'''
-        self.queue_status = 'paused'
-        self.log_message('任务队列已暂停，当前任务执行完成后将不再继续', 'info')
-        return {'success': True}
+        try:
+            self.queue_status = 'paused'
+            self.log_message('任务队列已暂停，当前任务执行完成后将不再继续', 'info')
+            return {'success': True}
+        except Exception as e:
+            self.log_message(f'停止任务队列时出错: {str(e)}', 'error')
+            return {'success': False, 'message': str(e)}
     
     def _process_next_task(self):
         '''处理下一个任务'''
         import threading
         import datetime
         
-        # 如果队列暂停或没有待执行的任务，设置为空闲状态
-        if self.queue_status != 'running':
+        # 确保线程安全的状态检查
+        if self.queue_status != 'running' or self.spider_status == 'running':
             return
         
         # 查找第一个待执行的任务
@@ -604,6 +629,7 @@ class API(System, Storage):
         
         # 启动爬虫
         def run_task():
+            task_failed = False
             try:
                 # 从配置表获取配置
                 browser_path = self.orm.getConfigVar('browserPath')
@@ -638,42 +664,84 @@ class API(System, Storage):
                 self.log_message(f'任务完成: {next_task["name"]}', 'success')
                 
             except Exception as e:
+                import traceback
                 error_msg = f'任务执行出错: {str(e)}'
                 self.log_message(error_msg, 'error')
+                self.log_message(f'错误详情: {traceback.format_exc()}', 'error')
                 next_task['status'] = 'failed'
                 next_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                task_failed = True
             finally:
-                # 清理资源
-                if self.browser:
-                    self.browser.close()
+                # 安全清理资源
+                try:
+                    if self.spider:
+                        self.spider.stop_spider()
+                except Exception as e:
+                    self.log_message(f'停止爬虫时出错: {str(e)}', 'error')
+                
+                try:
+                    if self.browser:
+                        self.browser.close()
+                except Exception as e:
+                    self.log_message(f'关闭浏览器时出错: {str(e)}', 'error')
+                
+                # 确保状态被正确重置
                 self.spider_status = 'idle'
                 self.spider = None
                 self.browser = None
                 self.current_task = None
                 
                 # 处理下一个任务
-                self._process_next_task()
+                try:
+                    self._process_next_task()
+                except Exception as e:
+                    self.log_message(f'处理下一个任务时出错: {str(e)}', 'error')
         
         # 启动任务线程
-        thread = threading.Thread(target=run_task, daemon=True)
-        thread.start()
+        try:
+            thread = threading.Thread(target=run_task, daemon=True)
+            thread.start()
+        except Exception as e:
+            self.log_message(f'无法启动任务线程: {str(e)}', 'error')
+            next_task['status'] = 'failed'
+            next_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self._on_task_completed()
     
     def _on_task_completed(self):
         '''任务完成回调'''
         import datetime
-        if self.current_task:
-            self.current_task['status'] = 'failed'
-            self.current_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            if self.current_task:
+                self.current_task['status'] = 'failed'
+                self.current_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self.current_task = None
+            
+            # 安全清理资源
+            try:
+                if self.spider:
+                    self.spider.stop_spider()
+            except Exception as e:
+                self.log_message(f'停止爬虫时出错: {str(e)}', 'error')
+            
+            try:
+                if self.browser:
+                    self.browser.close()
+            except Exception as e:
+                self.log_message(f'关闭浏览器时出错: {str(e)}', 'error')
+            
+            self.spider_status = 'idle'
+            self.spider = None
+            self.browser = None
+            
+            # 处理下一个任务
+            self._process_next_task()
+        except Exception as e:
+            self.log_message(f'任务完成回调时出错: {str(e)}', 'error')
+            # 确保状态被重置到安全状态
+            self.spider_status = 'idle'
+            self.spider = None
+            self.browser = None
             self.current_task = None
-        
-        if self.browser:
-            self.browser.close()
-        self.spider_status = 'idle'
-        self.spider = None
-        self.browser = None
-        
-        # 处理下一个任务
-        self._process_next_task()
 
     @auth_required
     def search_data(self, sku=None, limit=30, filters=None):
