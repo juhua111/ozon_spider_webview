@@ -382,7 +382,7 @@ class API(System, Storage):
         return True
     
     @auth_required
-    def start_spider(self, base_url):
+    def start_spider(self, base_url, on_finished=None):
         '''启动爬虫'''
         # 从配置表获取配置
         browser_path = self.orm.getConfigVar('browserPath')
@@ -396,6 +396,8 @@ class API(System, Storage):
                 self.log_message('请指定浏览器用户数据路径', 'error')
             self.spider_status = 'idle'
             self.spider_info = '浏览器配置不完整，无法启动爬虫'
+            if on_finished:
+                on_finished(False)
             return False
             
         co = ChromiumOptions()
@@ -408,6 +410,18 @@ class API(System, Storage):
         self.log_message(f'使用浏览器路径: {browser_path}', 'info')
         
         co.no_imgs(True)
+        
+        # 创建新浏览器之前，先关闭已有的浏览器，避免资源挤占
+        if self.browser:
+            try:
+                self.log_message('关闭之前的浏览器实例...', 'info')
+                self.browser.close()
+                self.log_message('等待浏览器资源释放...', 'info')
+                import time
+                time.sleep(2)
+            except Exception as e:
+                self.log_message(f'关闭旧浏览器出错: {str(e)}', 'warning')
+        
         self.browser = ChromiumPage(co)
 
 
@@ -415,33 +429,70 @@ class API(System, Storage):
         self.spider_info = '正在启动爬虫...'
         self.spider_logs = []  # 清空历史日志
         self.log_message(f'爬虫启动', 'info')
+        logger.info('[LOGGER] 爬虫启动日志已输出，准备创建finish_event')
         
         finish_event = threading.Event()
+        logger.info('[LOGGER] finish_event创建完成，准备定义run_spider')
         
         def run_spider():
             try:
                 self.log_message('正在初始化浏览器实例...', 'info')
-                self.spider = OzonSpider(base_url, self.browser, finish_event, 820, api=self, thread_count=1)  # 默认爬取820页，传递API实例
+                logger.info('[LOGGER-run_spider] 进入run_spider，即将创建OzonSpider')
+                self.spider = OzonSpider(base_url, self.browser, finish_event, 820, api=self, thread_count=1)
+                logger.info('[LOGGER-run_spider] OzonSpider创建完成')
                 self.log_message('爬虫实例创建成功', 'info')
+                logger.info('[LOGGER-run_spider] 即将调用self.spider.start()')
                 self.spider.start()
+                logger.info('[LOGGER-run_spider] self.spider.start()返回了')
                 self.spider_info = '正在爬取中...'
-                
                 self.log_message('爬虫开始运行...', 'info')
-                self.spider._finish_event.wait()
-                
+            except Exception as e:
+                import traceback
+                error_msg = f'爬虫启动出错: {str(e)}'
+                self.spider_status = 'idle'
+                self.spider_info = error_msg
+                self.log_message(error_msg, 'error')
+                self.log_message(f'错误详情: {traceback.format_exc()}', 'error')
+                logger.error(f'[LOGGER-run_spider] 异常: {str(e)}')
+                logger.error(f'[LOGGER-run_spider] traceback: {traceback.format_exc()}')
+                finish_event.set()
+                if on_finished:
+                    on_finished(False)
+        
+        def on_finish():
+            try:
+                self.log_message('爬虫任务已完成', 'info')
                 self.spider_status = 'finished'
                 self.spider_info = '爬虫任务完成！'
                 self.log_message('爬虫任务完成', 'success')
-                    
+                if on_finished:
+                    on_finished(True)
             except Exception as e:
                 self.spider_status = 'idle'
-                error_msg = f'爬虫出错: {str(e)}'
+                error_msg = f'爬虫完成处理出错: {str(e)}'
                 self.spider_info = error_msg
                 self.log_message(error_msg, 'error')
-                
+                if on_finished:
+                    on_finished(False)
+        
         # 启动爬虫线程
         thread = threading.Thread(target=run_spider, daemon=True)
+        logger.info(f'[INFO] 即将启动爬虫线程')
         thread.start()
+        logger.info(f'[INFO] 爬虫线程已启动，准备启动等待线程')
+        
+        # 启动等待线程，等待完成事件
+        def wait_for_finish():
+            logger.info(f'[INFO] 等待线程已启动，等待finish_event...')
+            finish_event.wait()
+            logger.info(f'[INFO] 收到finish_event完成信号，调用on_finish')
+            on_finish()
+        
+        logger.info(f'[INFO] 定义wait_for_finish完成，创建等待线程')
+        wait_thread = threading.Thread(target=wait_for_finish, daemon=True)
+        logger.info(f'[INFO] 等待线程对象创建完成，即将启动')
+        wait_thread.start()
+        logger.info(f'[INFO] 等待线程已启动，start_spider方法返回')
         
         return True
 
@@ -599,7 +650,6 @@ class API(System, Storage):
     
     def _process_next_task(self):
         '''处理下一个任务'''
-        import threading
         
         # 确保线程安全的状态检查
         if self.queue_status != 'running' or self.spider_status == 'running':
@@ -627,65 +677,53 @@ class API(System, Storage):
         # 启动爬虫
         def run_task():
             try:
-                # 从配置表获取配置
-                browser_path = self.orm.getConfigVar('browserPath')
-                browser_user_data_path = self.orm.getConfigVar('browserUserDataPath')
+                # 直接调用start_spider，复用已有逻辑，完成后回调
+                def on_spider_done(success):
+                    try:
+                        if success:
+                            self.log_message(f'任务完成: {next_task["name"]}', 'success')
+                            next_task['status'] = 'completed'
+                        else:
+                            self.log_message(f'任务失败: {next_task["name"]}', 'error')
+                            next_task['status'] = 'failed'
+                        next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    finally:
+                        # 安全清理资源
+                        try:
+                            if self.spider:
+                                self.spider.stop_spider()
+                        except Exception as e:
+                            self.log_message(f'停止爬虫时出错: {str(e)}', 'error')
+                        
+                        # 浏览器不需要在这里关闭，start_spider 创建新浏览器时会自动关闭旧浏览器
+                        # 这里只需要把引用设为 None，避免重复关闭
+                        self.spider = None
+                        self.current_task = None
+                        
+                        # 确保状态被正确重置后才能启动下一个任务
+                        self.spider_status = 'idle'
+                        self.browser = None
+                        
+                        # 处理下一个任务
+                        try:
+                            self._process_next_task()
+                        except Exception as e:
+                            self.log_message(f'处理下一个任务时出错: {str(e)}', 'error')
                 
-                if not browser_path or not browser_user_data_path:
-                    error_msg = '浏览器配置不完整，无法启动爬虫'
-                    self.log_message(error_msg, 'error')
-                    next_task['status'] = 'failed'
-                    next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    self._on_task_completed()
-                    return
-                
-                co = ChromiumOptions()
-                co.set_user_data_path(browser_user_data_path)
-                co.set_browser_path(browser_path)
-                co.no_imgs(True)
-                self.browser = ChromiumPage(co)
-
-                self.spider_status = 'running'
-                self.spider_info = f'正在执行任务: {next_task["name"]}'
-                
-                finish_event = threading.Event()
-                
-                self.spider = OzonSpider(next_task['url'], self.browser, finish_event, 820, api=self, thread_count=1)
-                self.spider.start()
-                self.spider._finish_event.wait()
-                
-                # 任务完成
-                next_task['status'] = 'completed'
-                next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                self.log_message(f'任务完成: {next_task["name"]}', 'success')
-                
+                self.start_spider(next_task['url'], on_spider_done)
             except Exception as e:
                 import traceback
-                error_msg = f'任务执行出错: {str(e)}'
+                error_msg = f'任务启动出错: {str(e)}'
                 self.log_message(error_msg, 'error')
                 self.log_message(f'错误详情: {traceback.format_exc()}', 'error')
-                next_task['status'] = 'failed'
-                next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            finally:
-                # 安全清理资源
-                try:
-                    if self.spider:
-                        self.spider.stop_spider()
-                except Exception as e:
-                    self.log_message(f'停止爬虫时出错: {str(e)}', 'error')
-                
-                try:
-                    if self.browser:
-                        self.browser.close()
-                except Exception as e:
-                    self.log_message(f'关闭浏览器时出错: {str(e)}', 'error')
-                
-                # 确保状态被正确重置
+                if next_task['status'] != 'completed':
+                    next_task['status'] = 'failed'
+                    next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                # 启动失败，直接清理状态
                 self.spider_status = 'idle'
                 self.spider = None
                 self.browser = None
                 self.current_task = None
-                
                 # 处理下一个任务
                 try:
                     self._process_next_task()

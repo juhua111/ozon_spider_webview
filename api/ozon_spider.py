@@ -587,6 +587,7 @@ class OzonSpider(feapder.AirSpider):
             log.info(f'  数据有效率: 0.00%')
         
         if self._finish_event:
+            log.info(f'=== 任务完成事件已设置 ===')
             self._finish_event.set()
         
         if self.tab:
