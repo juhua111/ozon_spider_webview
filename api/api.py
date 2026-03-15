@@ -20,6 +20,7 @@ from casdoor import CasdoorSDK
 from api.auth import auth_required
 import requests
 from loguru import logger
+from datetime import datetime
 
 
 class API(System, Storage):
@@ -358,9 +359,8 @@ class API(System, Storage):
     @auth_required
     def log_message(self, message, level='info'):
         '''记录日志消息'''
-        import datetime
         log_entry = {
-            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'level': level,
             'message': message
         }
@@ -460,9 +460,8 @@ class API(System, Storage):
         
         # 更新当前任务状态
         if self.current_task:
-            import datetime
             self.current_task['status'] = 'failed'
-            self.current_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.current_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.current_task = None
         
         self.spider_status = 'idle'
@@ -514,13 +513,12 @@ class API(System, Storage):
             if not base_url.startswith('http://') and not base_url.startswith('https://'):
                 return {'success': False, 'message': '请输入有效的URL地址（以http://或https://开头）'}
             
-            import datetime
             task = {
                 'id': len(self.task_queue) + 1,
                 'name': task_name if task_name else f'任务 {len(self.task_queue) + 1}',
                 'url': base_url,
                 'status': 'pending',  # pending: 待执行, running: 执行中, completed: 已完成, failed: 失败
-                'created_time': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'created_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'start_time': None,
                 'end_time': None
             }
@@ -602,7 +600,6 @@ class API(System, Storage):
     def _process_next_task(self):
         '''处理下一个任务'''
         import threading
-        import datetime
         
         # 确保线程安全的状态检查
         if self.queue_status != 'running' or self.spider_status == 'running':
@@ -622,14 +619,13 @@ class API(System, Storage):
         
         # 更新任务状态
         next_task['status'] = 'running'
-        next_task['start_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        next_task['start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.current_task = next_task
         
         self.log_message(f'开始执行任务: {next_task["name"]} - {next_task["url"]}', 'info')
         
         # 启动爬虫
         def run_task():
-            task_failed = False
             try:
                 # 从配置表获取配置
                 browser_path = self.orm.getConfigVar('browserPath')
@@ -639,7 +635,7 @@ class API(System, Storage):
                     error_msg = '浏览器配置不完整，无法启动爬虫'
                     self.log_message(error_msg, 'error')
                     next_task['status'] = 'failed'
-                    next_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     self._on_task_completed()
                     return
                 
@@ -660,7 +656,7 @@ class API(System, Storage):
                 
                 # 任务完成
                 next_task['status'] = 'completed'
-                next_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 self.log_message(f'任务完成: {next_task["name"]}', 'success')
                 
             except Exception as e:
@@ -669,8 +665,7 @@ class API(System, Storage):
                 self.log_message(error_msg, 'error')
                 self.log_message(f'错误详情: {traceback.format_exc()}', 'error')
                 next_task['status'] = 'failed'
-                next_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                task_failed = True
+                next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             finally:
                 # 安全清理资源
                 try:
@@ -704,16 +699,17 @@ class API(System, Storage):
         except Exception as e:
             self.log_message(f'无法启动任务线程: {str(e)}', 'error')
             next_task['status'] = 'failed'
-            next_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            next_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self._on_task_completed()
     
     def _on_task_completed(self):
         '''任务完成回调'''
-        import datetime
         try:
             if self.current_task:
-                self.current_task['status'] = 'failed'
-                self.current_task['end_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                # 保留任务的原始状态，只有在未完成的情况下才设置为失败
+                if self.current_task['status'] == 'running':
+                    self.current_task['status'] = 'failed'
+                    self.current_task['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 self.current_task = None
             
             # 安全清理资源
