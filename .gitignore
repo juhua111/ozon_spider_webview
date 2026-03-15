@@ -24,3 +24,5 @@ pyapp/spec/*
 
 # Ignore files
 __pycache__/
+
+*.log

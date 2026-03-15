@@ -3,7 +3,7 @@
 ; 有关创建 Inno Setup 脚本文件的详细资料请查阅帮助文档！
 
 #define MyAppName "OzonSpider"
-#define MyAppVersion "1.1"
+#define MyAppVersion "1.3"
 #define MyAppPublisher "CJH"
 #define MyAppURL ""
 #define MyAppExeName "OzonSpider.exe"
@@ -29,7 +29,7 @@ DisableProgramGroupPage=yes
 ; 移除以下行，以在管理安装模式下运行（为所有用户安装）。
 PrivilegesRequired=lowest
 OutputDir=D:\Users\windows 10\Desktop\git\ozon_spider_webview\build
-OutputBaseFilename=OzonSpider-V1.1_Windows
+OutputBaseFilename=OzonSpider-V1.3_Windows
 SetupIconFile=D:\Users\windows 10\Desktop\git\ozon_spider_webview\pyapp\icon\logo.ico
 Compression=lzma
 SolidCompression=yes
