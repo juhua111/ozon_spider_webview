@@ -439,8 +439,6 @@ class OzonSpider(feapder.AirSpider):
                 
                 # 添加额外的清理数据
                 product_dict = product.to_dict()
-                with open('product.json', 'w', encoding='utf-8') as f:
-                    json.dump(product_dict, f, ensure_ascii=False, indent=4)
                 product_dict['current_price_clean'] = clean_price_text(product.current_price)
                 product_dict['original_price_clean'] = clean_price_text(product.original_price)
                 product_dict['review_count_clean'] = clean_review_count(product.review_count)
