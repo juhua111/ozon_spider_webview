@@ -303,6 +303,12 @@ const newTaskForm = ref({
   name: ''
 })
 
+// 批量添加任务对话框
+const batchAddDialogVisible = ref(false)
+const batchAddForm = ref({
+  urlsText: ''
+})
+
 // 数据列表
 const dataList = ref([])
 // 数据总数量
@@ -558,6 +564,39 @@ const getTaskStatusInfo = (status) => {
     failed: { text: '失败', type: 'danger' }
   }
   return statusMap[status] || { text: '未知', type: 'info' }
+}
+
+// 打开批量添加对话框
+const openBatchAddDialog = () => {
+  batchAddForm.value.urlsText = ''
+  batchAddDialogVisible.value = true
+}
+
+// 关闭批量添加对话框
+const closeBatchAddDialog = () => {
+  batchAddDialogVisible.value = false
+}
+
+// 批量添加任务
+const addBatchTasks = async () => {
+  if (!batchAddForm.value.urlsText.trim()) {
+    ElMessage.error('请输入URL列表，每个URL占一行')
+    return
+  }
+  
+  try {
+    const result = await callApi('add_batch_tasks_to_queue', batchAddForm.value.urlsText)
+    if (result && result.success) {
+      ElMessage.success(`批量添加成功，共添加 ${result.added_count} 个任务`)
+      batchAddDialogVisible.value = false
+      await fetchSpiderStatus()
+    } else if (result && result.success === false) {
+      ElMessage.error(result.message || '批量添加失败')
+    }
+  } catch (error) {
+    console.error('批量添加任务失败:', error)
+    ElMessage.error('批量添加失败')
+  }
 }
 
 // 切换菜单
@@ -1158,6 +1197,13 @@ onUnmounted(() => {
                 暂停队列
               </el-button>
               <el-button 
+                type="primary" 
+                @click="openBatchAddDialog"
+              >
+                <el-icon><el-icon-document-add /></el-icon>
+                批量添加
+              </el-button>
+              <el-button 
                 type="danger" 
                 @click="clearTaskQueue"
                 :disabled="taskQueue.filter(t => t.status === 'pending').length === 0"
@@ -1196,7 +1242,11 @@ onUnmounted(() => {
               <h3>任务列表</h3>
               <el-table :data="taskQueue" style="width: 100%">
                 <el-table-column prop="id" label="ID" width="80" />
-                <el-table-column prop="name" label="任务名称" min-width="150" />
+                <el-table-column prop="name" label="任务名称" min-width="150">
+                  <template #default="scope">
+                    <span>{{ scope.row.name || `任务 ${scope.row.id}` }}</span>
+                  </template>
+                </el-table-column>
                 <el-table-column prop="url" label="URL" min-width="300" show-overflow-tooltip />
                 <el-table-column prop="status" label="状态" width="100">
                   <template #default="scope">
@@ -1223,13 +1273,41 @@ onUnmounted(() => {
               </el-table>
               
               <div class="empty-state" v-if="taskQueue.length === 0">
-                <el-empty description="暂无任务" />
-              </div>
-            </div>
+                 <el-empty description="暂无任务" />
+               </div>
+             </div>
           </el-card>
+          
+          <!-- 批量添加对话框 -->
+          <el-dialog
+            v-model="batchAddDialogVisible"
+            title="批量添加任务"
+            width="600px"
+            :before-close="closeBatchAddDialog"
+          >
+            <div class="batch-add-content">
+              <p class="dialog-tip">
+                请输入多个URL，<strong>每个URL占一行</strong>，空行自动忽略。如果任何一行URL无效，全部任务都不会添加。任务名称留空自动生成。
+              </p>
+              <el-input
+                v-model="batchAddForm.urlsText"
+                type="textarea"
+                :rows="12"
+                placeholder="https://www.ozon.ru/seller/example-shop-12345/
+https://www.ozon.ru/category/example-category-12345/"
+              />
+            </div>
+            
+            <template #footer>
+              <span class="dialog-footer">
+                <el-button @click="closeBatchAddDialog">取消</el-button>
+                <el-button type="primary" @click="addBatchTasks">确认添加</el-button>
+              </span>
+            </template>
+          </el-dialog>
         </div>
         
-        <!-- 数据查询页面 -->
+          <!-- 数据查询页面 -->
         <div v-if="activeMenu === 'data-query'" class="data-query-page">
           <el-card class="query-card">
             <template #header>
@@ -1632,6 +1710,15 @@ onUnmounted(() => {
 
 .current-task {
   margin-bottom: 20px;
+}
+
+.batch-add-content {
+  .dialog-tip {
+    color: #909399;
+    margin-bottom: 15px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
 }
 
 .spider-config {

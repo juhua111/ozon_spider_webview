@@ -577,8 +577,12 @@ class API(System, Storage):
             self.task_queue.append(task)
             self.log_message(f'已添加任务到队列: {task["name"]} - {base_url}', 'info')
             
-            # 如果队列当前是空闲状态，自动启动队列
-            if self.queue_status == 'idle' and self.spider_status == 'idle':
+            # 如果队列当前是空闲状态，且爬虫不在运行中，自动启动队列
+            # 强制重置爬虫状态为 idle，处理之前单个任务完成后停留在 finished 的情况
+            if self.queue_status == 'idle' and self.spider_status != 'running':
+                self.queue_status = 'running'
+                self.spider_status = 'idle'
+                self.log_message('自动启动任务队列', 'info')
                 self._process_next_task()
             
             return {'success': True, 'task': task}
@@ -627,8 +631,12 @@ class API(System, Storage):
             self.queue_status = 'running'
             self.log_message('任务队列已启动', 'info')
             
-            # 如果当前没有正在执行的任务，处理下一个任务
-            if self.spider_status == 'idle':
+            # 如果当前爬虫不在运行中（包括 idle 和 finished 状态），处理下一个任务
+            # finished 状态表示之前的单个任务已经完成，但状态没有重置为 idle
+            if self.spider_status != 'running':
+                # 强制将状态重置为 idle，确保能正常启动新任务
+                self.spider_status = 'idle'
+                self.log_message('重置爬虫状态为 idle，准备处理下一个任务', 'info')
                 self._process_next_task()
             
             return {'success': True}
@@ -643,17 +651,77 @@ class API(System, Storage):
         try:
             self.queue_status = 'paused'
             self.log_message('任务队列已暂停，当前任务执行完成后将不再继续', 'info')
-            return {'success': True}
+            return {'success': True, 'removed_count': len(pending_tasks)}
         except Exception as e:
-            self.log_message(f'停止任务队列时出错: {str(e)}', 'error')
+            self.log_message(f'清空任务队列时出错: {str(e)}', 'error')
+            return {'success': False, 'message': str(e)}
+    
+    @auth_required
+    def add_batch_tasks_to_queue(self, urls_text):
+        '''批量添加任务到队列，如果任何一个URL无效，则全部不添加
+        urls_text: 多行文本，每个URL占一行
+        '''
+        try:
+            if not urls_text:
+                return {'success': False, 'message': 'URL列表不能为空'}
+            
+            # 按换行分割，清理空行和空格
+            urls = [url.strip() for url in urls_text.split('\n')]
+            urls = [url for url in urls if url]  # 移除空行
+            
+            if len(urls) == 0:
+                return {'success': False, 'message': '没有找到有效的URL，请每个URL占一行'}
+            
+            # 先验证所有URL格式，如果有一个无效则全部不添加
+            for i, url in enumerate(urls):
+                if not url.startswith('http://') and not url.startswith('https://'):
+                    return {'success': False, 'message': f'第{i+1}行URL无效: {url}，必须以http://或https://开头，批量添加已取消'}
+            
+            # 所有URL验证通过，开始添加
+            added_count = 0
+            for url in urls:
+                task = {
+                    'id': len(self.task_queue) + 1,
+                    'name': '',  # 不需要任务名，留空
+                    'url': url,
+                    'status': 'pending',
+                    'created_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'start_time': None,
+                    'end_time': None
+                }
+                self.task_queue.append(task)
+                added_count += 1
+                self.log_message(f'已批量添加任务: {url}', 'info')
+            
+            self.log_message(f'批量添加完成，共添加 {added_count} 个任务', 'success')
+            
+            # 如果队列当前是空闲状态，且爬虫不在运行中，自动启动队列
+            if self.queue_status == 'idle' and self.spider_status != 'running':
+                self.queue_status = 'running'
+                self.spider_status = 'idle'
+                self.log_message('自动启动任务队列', 'info')
+                self._process_next_task()
+            
+            return {'success': True, 'added_count': added_count}
+        except Exception as e:
+            self.log_message(f'批量添加任务时出错: {str(e)}', 'error')
             return {'success': False, 'message': str(e)}
     
     def _process_next_task(self):
         '''处理下一个任务'''
         
         # 确保线程安全的状态检查
-        if self.queue_status != 'running' or self.spider_status == 'running':
+        # 如果队列不在运行状态，或者爬虫正在运行中，不处理下一个任务
+        if self.queue_status != 'running':
+            self.log_message(f'队列状态不是 running (当前: {self.queue_status})，跳过处理下一个任务', 'info')
             return
+        
+        # 如果爬虫正在运行，等待它完成后自动会调用本方法
+        if self.spider_status == 'running':
+            self.log_message(f'爬虫正在运行中 (当前状态: {self.spider_status})，等待完成后自动处理下一个任务', 'info')
+            return
+        
+        self.log_message(f'开始查找下一个待执行任务。队列状态: {self.queue_status}, 爬虫状态: {self.spider_status}', 'info')
         
         # 查找第一个待执行的任务
         next_task = None
